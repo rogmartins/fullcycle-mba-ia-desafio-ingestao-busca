@@ -1,3 +1,11 @@
+# ========================================================================
+#  Script........: search.py
+#  Autor.........: Rogério Martins
+#  Descrição.....: Módulo de busca e recuperação com RAG usando PGVector
+#  Criado em.....: 25/10/2025
+#  Última alteração: 25/10/2025
+# ========================================================================
+
 import os
 from typing import List, Tuple, Callable
 from dotenv import load_dotenv

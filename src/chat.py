@@ -1,3 +1,11 @@
+# ==================================================================
+#  Script........: chat.py
+#  Autor.........: Rogério Martins
+#  Descrição.....: Aplicação de chat para consulta em PDF ingerido
+#  Criado em.....: 25/10/2025
+#  Última alteração: 25/10/2025
+# ==================================================================
+
 import os
 from dotenv import load_dotenv
 

@@ -1,3 +1,11 @@
+# =============================================================================
+#  Script........: ingest.py
+#  Autor.........: Rogério Martins
+#  Descrição.....: Script para ingestão de PDF e criação de índices no PGVector
+#  Criado em.....: 25/10/2025
+#  Última alteração: 25/10/2025
+# =============================================================================
+
 import os
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader
