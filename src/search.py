@@ -41,11 +41,20 @@ PERGUNTA DO USUÁRIO:
 RESPONDA A "PERGUNTA DO USUÁRIO"
 """
 
+# Resposta padrão quando não há evidência suficiente no contexto
 DEFAULT_NOINFO = 'Não tenho informações necessárias para responder sua pergunta.'
 
 
 def _format_context(docs_with_scores: List[Tuple[Document, float]]) -> str:
-    """Formata os chunks recuperados para uso no CONTEXTO do prompt."""
+    """
+    Concatena os trechos recuperados (Document + score) para compor o CONTEXTO do prompt.
+
+    Parâmetros:
+        docs_with_scores: lista de tuplas (Document, score) retornadas pela busca vetorial.
+
+    Retorno:
+        Uma string com cabeçalho de cada trecho (índice, score, metadados úteis) e o conteúdo do chunk.
+    """
     if not docs_with_scores:
         return ""
     parts = []
@@ -64,7 +73,18 @@ def _format_context(docs_with_scores: List[Tuple[Document, float]]) -> str:
 
 
 def _load_clients():
-    """Inicializa e retorna (embeddings, store, llm) prontos para uso."""
+    """
+    Carrega variáveis de ambiente e instancia clientes necessários ao pipeline RAG.
+
+    Fluxo:
+        - Garante presença das variáveis críticas (.env).
+        - Cria o cliente de embeddings (OpenAIEmbeddings).
+        - Cria o vetor store PGVector (conexão Postgres informada em DATABASE_URL).
+        - Cria o cliente de chat LLM (ChatOpenAI).
+
+    Retorno:
+        (embeddings, store, llm)
+    """
     load_dotenv()
 
     for k in ("OPENAI_API_KEY", "DATABASE_URL", "PGVECTOR_COLLECTION"):
@@ -89,36 +109,66 @@ def _load_clients():
 
 def search_prompt(question: str | None = None) -> Callable[[str, int], str] | str:
     """
-    Se 'question' for None, retorna uma função chamável:
-        chain(q: str, k: int = 10) -> str
+    Constrói a cadeia de pesquisa e resposta (RAG) ou executa-a imediatamente.
 
-    Se 'question' for uma string, executa o pipeline imediatamente e retorna a resposta.
+    Comportamentos:
+        - Se 'question' for None:
+            retorna uma função `chain(q: str, k: int = 10) -> str` que:
+                1) vetoriza q e busca top-k no PGVector,
+                2) formata o contexto,
+                3) injeta no PROMPT_TEMPLATE,
+                4) chama a LLM e retorna a resposta (ou DEFAULT_NOINFO).
+        - Se 'question' for str:
+            executa imediatamente a mesma cadeia e retorna a resposta.
+
+    Parâmetros:
+        question: pergunta opcional para execução imediata.
+
+    Retorno:
+        Função `chain(...)` pronta para uso interativo OU a string de resposta.
     """
     embeddings, store, llm = _load_clients()
 
     def chain(q: str, k: int = 10) -> str:
-        # 1+2) Recuperação com similaridade
+        """
+        Executa o pipeline RAG completo para a pergunta 'q'.
+
+        Etapas:
+            1) Busca vetorial (top-k) no PGVector com base na pergunta.
+            2) Monta o CONTEXTO a partir dos trechos retornados.
+            3) Formata o PROMPT_TEMPLATE com (contexto, pergunta).
+            4) Invoca a LLM e retorna o conteúdo textual.
+
+        Parâmetros:
+            q: pergunta do usuário.
+            k: quantidade de resultados mais relevantes a recuperar (default=10).
+
+        Retorno:
+            Resposta da LLM, ou DEFAULT_NOINFO se não houver contexto suficiente.
+        """
+        # 1) Recuperação por similaridade (PGVector)
         docs_with_scores = store.similarity_search_with_score(q, k=k)
 
-        # 3) Montagem do prompt a partir do template fornecido
+        # 2) Formatação do contexto
         contexto = _format_context(docs_with_scores)
 
-        # Caso não haja contexto, respeite a regra e responda diretamente
+        # Short-circuit: sem contexto, respeite as regras e não invente
         if not contexto.strip():
             return DEFAULT_NOINFO
 
+        # 3) Prompt a partir do template fornecido
         prompt = PROMPT_TEMPLATE.format(contexto=contexto, pergunta=q).strip()
 
         # 4) Chamada à LLM
         resp = llm.invoke(prompt)
         answer = (resp.content or "").strip()
 
-        # Fallback defensivo: se por algum motivo vier vazio, devolve a mensagem padrão
+        # Fallback defensivo
         return answer if answer else DEFAULT_NOINFO
 
     if question is None:
         return chain
     else:
-        # Execução imediata
+        # Execução imediata com k definido via env (TOPK) ou padrão 10
         return chain(question, k=int(os.getenv("TOPK", "10")))
 
