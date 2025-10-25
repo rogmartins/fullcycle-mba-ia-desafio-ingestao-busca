@@ -59,7 +59,7 @@ Antes de fazer perguntas, é necessário **indexar o conteúdo do PDF** no banco
 Execute:
 
 ```bash
-python -m src.ingest
+python3 -m src/ingest.py
 ```
 
 Isso:
