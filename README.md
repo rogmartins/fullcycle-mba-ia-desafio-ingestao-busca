@@ -59,7 +59,7 @@ Antes de fazer perguntas, é necessário **indexar o conteúdo do PDF** no banco
 Execute:
 
 ```bash
-python3 -m src/ingest.py
+python3 src/ingest.py
 ```
 
 Isso:
@@ -75,7 +75,7 @@ Isso:
 Após a ingestão, execute:
 
 ```bash
-python -m src.chat
+python3 src/chat.py
 ```
 
 Você verá:
